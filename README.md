@@ -3,6 +3,7 @@
 A full-stack email scheduling and outreach management application built with React, TypeScript, Node.js, Express, PostgreSQL, Prisma, Redis, and BullMQ.
 
 The application supports Google authentication, campaign creation, persistent email scheduling, Redis-backed rate limiting, BullMQ delayed jobs, background email processing, retry handling, and idempotent delivery.
+[ReachInbox Live Link](https://reachinbox-frontend-iji67bmnn-nidhiks-projects-1d994424.vercel.app/login)
 
 ## Features
 
