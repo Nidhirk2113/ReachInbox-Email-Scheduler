@@ -2,263 +2,178 @@
 
 A full-stack email scheduling and outreach management application built with React, TypeScript, Node.js, Express, PostgreSQL, Prisma, Redis, and BullMQ.
 
+The application supports Google authentication, campaign creation, persistent email scheduling, Redis-backed rate limiting, BullMQ delayed jobs, background email processing, retry handling, and idempotent delivery.
+
 ## Features
 
-- Google Sign-In authentication with server-side ID-token verification
-- HTTP-only session cookie authentication
-- User/account/profile management
-- Create and schedule email campaigns
+### Backend
+- Google Sign-In with server-side Google ID-token verification
+- HTTP-only JWT session cookie authentication
+- User and account management
+- Campaign creation and persistence
 - Multiple recipients per campaign
-- Configurable start time, delivery delay, and hourly limit
-- PostgreSQL persistence through Prisma
+- Configurable campaign start time, minimum delivery delay, and hourly limit
+- PostgreSQL persistence using Prisma
 - Redis-backed distributed scheduling
-- BullMQ delayed background jobs
-- Scheduled, processing, sent, and failed email states
-- Campaign, scheduled, sent, activity, settings, and dashboard views
-- Light/dark theme support
-- Custom profile avatar selection
+- BullMQ delayed jobs and background worker
+- Worker concurrency control
+- Exponential-backoff retries
+- Idempotent email processing
+- Scheduled / Processing / Sent / Failed states
+- Campaign, scheduled-email, and sent-email APIs
+- Helmet and CORS
+
+### Frontend
+- Google Sign-In
+- Dashboard
+- Campaign creation and management
+- Scheduled and Sent email tables
+- Activity view
+- Account/profile and Settings
+- Custom profile avatar
+- Light/dark theme
 - Responsive React UI
 
 ## Tech Stack
 
-### Frontend
-- React
-- TypeScript
-- Vite
-- React Router
-- Axios
-- Tailwind CSS
-- Lucide React
-- `@react-oauth/google`
+**Frontend:** React, TypeScript, Vite, React Router, Axios, Tailwind CSS, Lucide React, `@react-oauth/google`
 
-### Backend
-- Node.js
-- TypeScript
-- Express
-- Helmet
-- CORS
-- Cookie Parser
-- Google Auth Library
-- JSON Web Tokens
-- Nodemailer
+**Backend:** Node.js, TypeScript, Express, Helmet, CORS, Cookie Parser, Google Auth Library, JSON Web Tokens, Nodemailer
 
-### Infrastructure
-- PostgreSQL
-- Prisma ORM
-- Redis
-- BullMQ
-- Docker / Docker Compose
+**Infrastructure:** PostgreSQL, Prisma, Redis, BullMQ, Docker/Docker Compose, Ethereal Email
 
 ## Architecture
 
 ```text
 Google OAuth
      |
-     v
 React Frontend
      |
-     | HTTP + session cookie
-     v
+HTTP + session cookie
+     |
 Express API
-     |
-     +---- Authentication ---> PostgreSQL
-     |
-     +---- Campaign API ------> PostgreSQL
-     |
-     +---- Scheduling --------> Redis / BullMQ
-                                      |
-                                      v
-                                Email Worker
-                                      |
-                                      v
-                                  SMTP Sender
+  |       |        |
+  v       v        v
+Auth   Campaign  Scheduler
+  |       |        |
+  +-------+        v
+ PostgreSQL       Redis
+                    |
+                    v
+               BullMQ Queue
+                    |
+                    v
+               Email Worker
+                    |
+                    v
+               Ethereal SMTP
 ```
 
-## Project Structure
+## Scheduling Without Cron
+
+The application does **not** use OS cron, `node-cron`, `agenda`, or polling timers.
+
+Scheduling uses:
+- Redis
+- Redis Lua scripting for atomic slot reservation
+- BullMQ delayed jobs
+
+Each email is persisted with a `scheduledAt` timestamp and then added to BullMQ with a delay based on that timestamp.
+
+```ts
+await emailQueue.add(
+  `email-${email.id}`,
+  { emailId: email.id },
+  {
+    jobId: email.id,
+    delay: Math.max(
+      0,
+      email.scheduledAt.getTime() - Date.now()
+    ),
+  }
+);
+```
+
+## Persistence and Restart Handling
+
+Scheduling does not depend on in-memory Node.js timers.
+
+- PostgreSQL persists campaigns and individual email `scheduledAt` values.
+- Redis/BullMQ persists delayed jobs.
+- Restarting the API or worker does not recreate campaigns from the beginning.
+- Existing future jobs remain available to the worker after restart.
+
+## Rate Limiting
+
+Defaults:
 
 ```text
-reachinbox-email-scheduler/
-├── backend/
-│   ├── prisma/
-│   │   └── schema.prisma
-│   ├── src/
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── queues/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── app.ts
-│   │   └── server.ts
-│   ├── .env
-│   ├── .env.example
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── AuthContext.tsx
-│   │   ├── ThemeContext.tsx
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── .env
-│   ├── package.json
-│   └── vite.config.ts
-├── docker-compose.yml
-└── README.md
+MIN_EMAIL_DELAY_MS = 2000
+MAX_EMAILS_PER_HOUR = 200
 ```
 
-## Authentication Flow
+The scheduler applies:
 
 ```text
-Google Sign-In
-      |
-      v
-POST /api/auth/google
-      |
-      v
-Verify Google ID token
-      |
-      v
-Create/update User in PostgreSQL
-      |
-      v
-Create JWT session
-      |
-      v
-HTTP-only reachinbox_session cookie
-      |
-      v
-Protected API requests
-      |
-      v
-requireAuth -> req.userId
+effectiveHourlyLimit = min(requestedLimit, systemMaximum)
+effectiveDelay = max(requestedDelay, systemMinimum)
 ```
 
-The frontend Axios client uses `withCredentials: true`, allowing the session cookie to be sent with API requests.
+Redis atomically reserves delivery slots and maintains hourly counters.
 
-## API Endpoints
+### 1,000 Email Validation
 
-### Authentication
-
-```http
-POST /api/auth/google
-GET  /api/auth/me
-POST /api/auth/logout
-```
-
-### Email / Campaigns
-
-```http
-POST /api/emails/schedule
-GET  /api/emails/campaigns
-GET  /api/emails/scheduled
-GET  /api/emails/sent
-```
-
-### Health
-
-```http
-GET /health
-```
-
-Example:
-
-```json
-{
-  "status": "ok",
-  "service": "reachinbox-backend"
-}
-```
-
-## Campaign Scheduling
-
-When a campaign is created:
+A 1,000-recipient scheduling test was completed with a 200/hour limit and 2-second minimum delay:
 
 ```text
-Campaign request
-      |
-      v
-Validate request
-      |
-      v
-Apply minimum delay and hourly limits
-      |
-      v
-Reserve delivery slots through Redis
-      |
-      v
-Create Campaign + Email records in PostgreSQL
-      |
-      v
-Create delayed BullMQ jobs
-      |
-      v
-Redis
-      |
-      v
-Email Worker
-      |
-      v
-SMTP delivery
-      |
-      v
-Update Email status
+20:00–21:00    200
+21:00–22:00    200
+22:00–23:00    200
+23:00–00:00    200
+00:00–01:00    200
+--------------------
+Total        1,000
 ```
 
-System-wide limits prevent campaigns from exceeding the configured maximum sending rate.
+No hourly bucket exceeded 200 emails.
 
-## Database
+The test created:
+- 1,000 PostgreSQL email records
+- 1,000 `SCHEDULED` records
+- 1,000 BullMQ delayed jobs
 
-The Prisma schema currently contains:
+Scheduling completed in approximately 2.4 seconds.
 
-### User
-- `id`
-- `googleId`
-- `name`
-- `email`
-- `avatarUrl`
-- `createdAt`
-- `updatedAt`
+## Worker Concurrency, Retry and Idempotency
 
-### Campaign
-- `id`
-- `userId`
-- `subject`
-- `body`
-- `startTime`
-- `delayMs`
-- `hourlyLimit`
-- `createdAt`
-- `updatedAt`
+Default worker concurrency:
 
-### Email
-- `id`
-- `campaignId`
-- `senderId`
-- `recipient`
-- `subject`
-- `body`
-- `scheduledAt`
-- `sentAt`
-- `status`
-- `attempts`
-- `bullJobId`
-- `messageId`
-- `previewUrl`
-- `errorMessage`
-- `createdAt`
-- `updatedAt`
-
-Email statuses:
-
-```text
-SCHEDULED
-PROCESSING
-SENT
-FAILED
+```env
+WORKER_CONCURRENCY=10
 ```
+
+BullMQ jobs use:
+- 3 attempts
+- Exponential backoff
+- 5-second initial backoff
+
+The worker checks the persisted email status before processing. If an email is already `SENT`, it is skipped. Each email uses its database ID as the BullMQ `jobId`.
+
+A stable application-level Message-ID is also generated.
+
+## Ethereal Email
+
+The current implementation uses Ethereal Email through Nodemailer for development/testing.
+
+The application dynamically creates a temporary Ethereal test account with:
+
+```ts
+nodemailer.createTestAccount()
+```
+
+Therefore, separate Ethereal SMTP credentials are not required in the current implementation.
+
+Successful sends produce an Ethereal preview URL in the worker logs.
 
 ## Environment Variables
 
@@ -292,31 +207,28 @@ VITE_API_URL=http://localhost:5000/api
 VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-Never commit secrets to Git.
+Never commit actual secrets.
 
 ## Google Cloud Setup
 
-Create/configure a Google OAuth client in Google Cloud Console.
-
-For local development, the frontend origin should include:
-
-```text
-http://localhost:5173
-```
-
-The same client ID is used by the backend as the expected Google token audience.
+1. Create/configure a Google Cloud project.
+2. Create a Web Application OAuth client.
+3. Add `http://localhost:5173` as an allowed frontend origin.
+4. Put the same client ID in both backend and frontend environment files.
+5. The backend verifies the Google ID token and checks the configured client ID as its audience.
 
 ## Running Locally
 
-### 1. Start infrastructure
+### 1. Start PostgreSQL and Redis
 
 From the project root:
 
 ```powershell
 docker compose up -d
+docker ps
 ```
 
-### 2. Start backend
+### 2. Backend
 
 ```powershell
 cd backend
@@ -326,13 +238,11 @@ npm run prisma:migrate
 npm run dev
 ```
 
-Backend:
+Backend: `http://localhost:5000`
 
-```text
-http://localhost:5000
-```
+Health: `http://localhost:5000/health`
 
-### 3. Start worker
+### 3. BullMQ Worker
 
 In another terminal:
 
@@ -341,7 +251,7 @@ cd backend
 npm run worker
 ```
 
-### 4. Start frontend
+### 4. Frontend
 
 In another terminal:
 
@@ -351,137 +261,184 @@ npm install
 npm run dev
 ```
 
-Frontend:
+Frontend: `http://localhost:5173`
 
-```text
-http://localhost:5173
-```
-
-## Development Checklist
+## API Endpoints
 
 ### Authentication
-- Open the frontend
-- Continue with Google
-- Confirm the dashboard loads
-- Open the profile menu
-- Confirm the authenticated user is displayed
 
-### Campaigns
-- Open Campaigns
-- Create a campaign
-- Add recipients
-- Set the start time
-- Configure delay and hourly limit
-- Submit
-- Confirm the campaign appears in the Campaigns page
-
-### Scheduling
-- Confirm the campaign appears in Scheduled
-- Keep the email worker running
-- Wait until the scheduled time
-- Confirm the worker processes the job
-- Confirm the email status changes
-- Confirm completed deliveries appear in Sent
-
-## Useful Debugging Commands
-
-### Backend health
-
-```powershell
-Invoke-RestMethod http://localhost:5000/health
+```http
+POST /api/auth/google
+GET  /api/auth/me
+POST /api/auth/logout
 ```
 
-### Campaigns
+### Campaigns / Emails
 
-```powershell
-docker exec reachinbox-postgres psql -U postgres -d reachinbox -c 'SELECT * FROM "Campaign" ORDER BY "createdAt" DESC;'
+```http
+POST /api/emails/schedule
+GET  /api/emails/campaigns
+GET  /api/emails/scheduled
+GET  /api/emails/sent
 ```
 
-### Emails
+### Health
 
-```powershell
-docker exec reachinbox-postgres psql -U postgres -d reachinbox -c 'SELECT "id", "campaignId", "recipient", "subject", "status", "scheduledAt", "sentAt" FROM "Email" ORDER BY "createdAt" DESC;'
+```http
+GET /health
 ```
 
-### Users
+## Database Models
 
-```powershell
-docker exec reachinbox-postgres psql -U postgres -d reachinbox -c 'SELECT "id", "googleId", "name", "email" FROM "User";'
+### User
+- `id`
+- `googleId`
+- `name`
+- `email`
+- `avatarUrl`
+- `createdAt`
+- `updatedAt`
+
+### Campaign
+- `id`
+- `userId`
+- `subject`
+- `body`
+- `startTime`
+- `delayMs`
+- `hourlyLimit`
+- `createdAt`
+- `updatedAt`
+
+### Email
+- `id`
+- `campaignId`
+- `senderId`
+- `recipient`
+- `subject`
+- `body`
+- `scheduledAt`
+- `sentAt`
+- `status`
+- `attempts`
+- `messageId`
+- `previewUrl`
+- `errorMessage`
+- `createdAt`
+- `updatedAt`
+
+Statuses:
+
+```text
+SCHEDULED
+PROCESSING
+SENT
+FAILED
 ```
 
-### Containers
+## Demo / Validation
 
-```powershell
-docker ps
-```
+The demonstration should cover:
+1. Google login
+2. Dashboard
+3. Creating a scheduled campaign
+4. Scheduled email view
+5. Starting the worker
+6. Email processing
+7. Sent email view
+8. Restarting backend/worker
+9. Confirming future jobs continue processing
+10. Briefly demonstrating rate limiting/delay behavior
+
+## Assumptions and Trade-offs
+
+### Ethereal SMTP
+Ethereal is used for development/testing rather than production delivery. The application dynamically creates a test account.
+
+### No Cron
+BullMQ delayed jobs and Redis-based slot reservation are used instead of cron.
+
+### Rate Limiting
+A system-wide maximum hourly limit and minimum delay prevent campaigns from bypassing global delivery constraints.
+
+### Persistence
+PostgreSQL stores campaign/email scheduling state while Redis/BullMQ stores delayed background jobs.
+
+### Production Email
+A production deployment would normally use a verified transactional provider such as Amazon SES, SendGrid, or another SMTP/API provider.
+
+### Exactly-once Delivery
+Application-level idempotency prevents a completed email from being processed again. Absolute exactly-once external SMTP delivery cannot be guaranteed in every network-failure scenario.
+
+## Security
+
+- Google ID tokens are verified server-side.
+- Authentication uses HTTP-only cookies.
+- Protected routes derive the user ID from the authenticated session.
+- Campaign/email queries are scoped to the authenticated user.
+- Helmet is enabled.
+- CORS is configured.
+- Secrets are stored in environment variables.
+- `.env` files are excluded from Git.
 
 ## Build
 
-### Backend
+Backend:
 
 ```powershell
 cd backend
 npm run build
 ```
 
-### Frontend
+Frontend:
 
 ```powershell
 cd frontend
 npm run build
 ```
 
-## Security
+## Useful Debugging Commands
 
-- Google ID tokens are verified server-side.
-- Sessions use HTTP-only cookies.
-- Protected routes derive the user ID from the authenticated session.
-- Campaign queries are scoped to the authenticated user.
-- CORS credentials are enabled for the frontend/backend relationship.
-- Helmet is enabled.
-- Secrets belong in environment variables.
-- OAuth credentials and JWT secrets must not be committed.
+```powershell
+Invoke-RestMethod http://localhost:5000/health
 
-## Current Project Status
+docker ps
+```
 
-Implemented and integrated:
+Campaigns:
 
-- Google authentication
-- Session-based authorization
-- PostgreSQL + Prisma
-- Redis scheduling
-- BullMQ background jobs
-- Email scheduling API
-- Campaign API
-- Scheduled email API
-- Sent email API
-- Dashboard
-- Campaign management UI
-- Light/dark themes
-- Account/profile functionality
-- Frontend/backend integration
+```powershell
+docker exec reachinbox-postgres psql -U postgres -d reachinbox -c 'SELECT * FROM "Campaign" ORDER BY "createdAt" DESC;'
+```
 
-The scheduling system is currently being validated with future-time delivery tests.
+Emails:
+
+```powershell
+docker exec reachinbox-postgres psql -U postgres -d reachinbox -c 'SELECT "id", "campaignId", "recipient", "subject", "status", "scheduledAt", "sentAt" FROM "Email" ORDER BY "createdAt" DESC;'
+```
+
+Users:
+
+```powershell
+docker exec reachinbox-postgres psql -U postgres -d reachinbox -c 'SELECT "id", "googleId", "name", "email" FROM "User";'
+```
 
 ## Future Improvements
 
-Potential next steps:
-
-- Campaign detail/edit/delete
 - CSV recipient upload
+- Campaign editing/deletion
 - Rich-text email editor
 - Email templates
 - Open/click/reply tracking
 - Delivery analytics
-- Retry controls
 - Multiple sender accounts
-- Gmail API integration for production sending
+- Production transactional email provider
 - Pagination
 - Automated unit/integration tests
 - CI/CD
-- Production deployment
 - Monitoring and structured logging
+- Production deployment
 
 ## License
 
-This project is currently intended for development and demonstration purposes. Add an appropriate open-source license before public distribution.
+This project is currently intended for development and demonstration purposes.
