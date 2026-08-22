@@ -18,9 +18,11 @@ export const env = {
   databaseUrl: requireEnv("DATABASE_URL"),
 
   redis: {
-    host: process.env.REDIS_HOST ?? "localhost",
-    port: Number(process.env.REDIS_PORT ?? 6379),
-  },
+  host: process.env.REDIS_HOST ?? "localhost",
+  port: Number(process.env.REDIS_PORT ?? 6379),
+  username: process.env.REDIS_USERNAME,
+  password: process.env.REDIS_PASSWORD,
+},
 
   workerConcurrency: Number(
     process.env.WORKER_CONCURRENCY ?? 10
