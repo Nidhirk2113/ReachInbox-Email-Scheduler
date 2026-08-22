@@ -1,29 +1,6 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-let transporter: nodemailer.Transporter | null = null;
-
-export async function getSmtpTransporter() {
-  if (transporter) {
-    return transporter;
-  }
-
-  const testAccount = await nodemailer.createTestAccount();
-
-  transporter = nodemailer.createTransport({
-    host: testAccount.smtp.host,
-    port: testAccount.smtp.port,
-    secure: testAccount.smtp.secure,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass,
-    },
-  });
-
-  console.log("✓ Ethereal SMTP configured");
-  console.log(`Ethereal user: ${testAccount.user}`);
-
-  return transporter;
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface SendEmailInput {
   recipient: string;
@@ -38,33 +15,34 @@ export async function sendEmail({
   body,
   messageId,
 }: SendEmailInput) {
-  const transport = await getSmtpTransporter();
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured");
+  }
 
-  const info = await transport.sendMail({
-    from: `"ReachInbox Scheduler" <scheduler@reachinbox.test>`,
-    to: recipient,
+  const { data, error } = await resend.emails.send({
+    from: "ReachInbox Scheduler <onboarding@resend.dev>",
+    to: [recipient],
     subject,
     text: body,
 
-    // Deterministic application-level Message-ID.
-    ...(messageId ? { messageId } : {}),
+    ...(messageId
+      ? {
+          headers: {
+            "Message-ID": messageId,
+          },
+        }
+      : {}),
   });
 
-  const previewUrl = nodemailer.getTestMessageUrl(info);
-
-  console.log(`✓ Email sent to ${recipient}`);
-
-  if (previewUrl) {
-    console.log(`Preview: ${previewUrl}`);
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
   }
 
-  console.log(`Message ID: ${info.messageId}`);
+  console.log(`✓ Email sent to ${recipient}`);
+  console.log(`Resend message ID: ${data?.id}`);
 
   return {
-    messageId: info.messageId,
-    previewUrl:
-    typeof previewUrl === "string"
-      ? previewUrl
-      : null,
-   };
+    messageId: data?.id ?? messageId ?? null,
+    previewUrl: null,
+  };
 }
