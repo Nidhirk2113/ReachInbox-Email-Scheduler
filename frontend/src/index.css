@@ -1,0 +1,472 @@
+@import "tailwindcss";
+
+/* ============================================================
+   ROOT / LIGHT THEME
+   ============================================================ */
+
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+
+  /* ---------- Backgrounds ---------- */
+
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f9f9fc;
+  --surface-hover: #f1f2f6;
+
+  /* ---------- Text ---------- */
+
+  --text: #171820;
+  --text-secondary: #565965;
+  --text-muted: #747783;
+  --text-subtle: #989ba5;
+
+  /* ---------- Borders ---------- */
+
+  --border: rgba(15, 18, 30, 0.09);
+  --border-strong: rgba(15, 18, 30, 0.14);
+
+  /* ---------- Accent ---------- */
+
+  --accent: #7c3aed;
+  --accent-light: #8b5cf6;
+
+  /* ---------- Shadow ---------- */
+
+  --shadow: rgba(15, 18, 30, 0.08);
+}
+
+/* ============================================================
+   DARK THEME
+   ============================================================ */
+
+html.dark {
+  --bg: #08090d;
+  --surface: #0f1016;
+  --surface-soft: #11121a;
+  --surface-hover: #171820;
+
+  --text: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.62);
+  --text-muted: rgba(255, 255, 255, 0.40);
+  --text-subtle: rgba(255, 255, 255, 0.24);
+
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
+  --accent: #8b5cf6;
+  --accent-light: #a78bfa;
+
+  --shadow: rgba(0, 0, 0, 0.45);
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+html {
+  background: var(--bg);
+  transition: background-color 300ms ease;
+}
+
+body {
+  min-width: 320px;
+
+  background: var(--bg);
+  color: var(--text);
+
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.25);
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+
+.theme-bg {
+  background: var(--bg);
+}
+
+.theme-surface {
+  background: var(--surface);
+}
+
+.theme-surface-soft {
+  background: var(--surface-soft);
+}
+
+.theme-surface-hover:hover {
+  background: var(--surface-hover);
+}
+
+.theme-text {
+  color: var(--text);
+}
+
+.theme-secondary {
+  color: var(--text-secondary);
+}
+
+.theme-muted {
+  color: var(--text-muted);
+}
+
+.theme-subtle {
+  color: var(--text-subtle);
+}
+
+.theme-border {
+  border-color: var(--border);
+}
+
+.theme-border-strong {
+  border-color: var(--border-strong);
+}
+
+/* ============================================================
+   LEGACY DARK CLASSES
+   LIGHT MODE COMPATIBILITY
+   ============================================================ */
+
+/* ---------- Text ---------- */
+
+html:not(.dark) .text-white {
+  color: var(--text);
+}
+
+html:not(.dark) .text-white\/90 {
+  color: rgba(23, 24, 32, 0.9);
+}
+
+html:not(.dark) .text-white\/80 {
+  color: rgba(23, 24, 32, 0.8);
+}
+
+html:not(.dark) .text-white\/70 {
+  color: rgba(23, 24, 32, 0.7);
+}
+
+html:not(.dark) .text-white\/60 {
+  color: rgba(23, 24, 32, 0.6);
+}
+
+html:not(.dark) .text-white\/50 {
+  color: rgba(23, 24, 32, 0.5);
+}
+
+html:not(.dark) .text-white\/40 {
+  color: rgba(23, 24, 32, 0.42);
+}
+
+html:not(.dark) .text-white\/35 {
+  color: rgba(23, 24, 32, 0.48);
+}
+
+html:not(.dark) .text-white\/30 {
+  color: rgba(23, 24, 32, 0.38);
+}
+
+html:not(.dark) .text-white\/25 {
+  color: rgba(23, 24, 32, 0.3);
+}
+
+html:not(.dark) .text-white\/20 {
+  color: rgba(23, 24, 32, 0.25);
+}
+
+html:not(.dark) .text-white\/15 {
+  color: rgba(23, 24, 32, 0.2);
+}
+
+html:not(.dark) .text-white\/10 {
+  color: rgba(23, 24, 32, 0.15);
+}
+
+/* ---------- Backgrounds ---------- */
+
+html:not(.dark) .bg-\[\#08090d\] {
+  background-color: var(--bg);
+}
+
+html:not(.dark) .bg-\[\#0b0c11\] {
+  background-color: var(--surface);
+}
+
+html:not(.dark) .bg-\[\#15161d\] {
+  background-color: var(--surface);
+}
+
+html:not(.dark) .bg-\[\#0f1016\] {
+  background-color: var(--surface);
+}
+
+html:not(.dark) .bg-white\/5 {
+  background-color: rgba(15, 18, 30, 0.045);
+}
+
+html:not(.dark) .bg-white\/10 {
+  background-color: rgba(15, 18, 30, 0.07);
+}
+
+html:not(.dark) .bg-white\/\[0\.02\] {
+  background-color: rgba(15, 18, 30, 0.025);
+}
+
+html:not(.dark) .bg-white\/\[0\.025\] {
+  background-color: var(--surface);
+}
+
+html:not(.dark) .bg-white\/\[0\.035\] {
+  background-color: rgba(15, 18, 30, 0.035);
+}
+
+html:not(.dark) .bg-white\/\[0\.04\] {
+  background-color: rgba(15, 18, 30, 0.04);
+}
+
+html:not(.dark) .bg-white\/\[0\.05\] {
+  background-color: rgba(15, 18, 30, 0.045);
+}
+
+html:not(.dark) .bg-white\/\[0\.06\] {
+  background-color: rgba(15, 18, 30, 0.06);
+}
+
+/* ---------- Borders ---------- */
+
+html:not(.dark) .border-white\/\[0\.04\] {
+  border-color: var(--border);
+}
+
+html:not(.dark) .border-white\/\[0\.05\] {
+  border-color: var(--border);
+}
+
+html:not(.dark) .border-white\/\[0\.06\] {
+  border-color: var(--border);
+}
+
+html:not(.dark) .border-white\/\[0\.07\] {
+  border-color: var(--border);
+}
+
+html:not(.dark) .border-white\/\[0\.08\] {
+  border-color: var(--border-strong);
+}
+
+html:not(.dark) .border-white\/10 {
+  border-color: var(--border-strong);
+}
+
+html:not(.dark) .border-white\/\[0\.12\] {
+  border-color: var(--border-strong);
+}
+
+/* ---------- Dividers ---------- */
+
+html:not(.dark) .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border);
+}
+
+/* ============================================================
+   LIGHT MODE FORM CONTROLS
+   ============================================================ */
+
+html:not(.dark) input,
+html:not(.dark) textarea,
+html:not(.dark) select {
+  color: var(--text);
+  background-color: var(--surface);
+  border-color: var(--border);
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: rgba(23, 24, 32, 0.35);
+}
+
+html:not(.dark) input:focus,
+html:not(.dark) textarea:focus,
+html:not(.dark) select:focus {
+  border-color: rgba(124, 58, 237, 0.45);
+
+  box-shadow:
+    0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+/* ============================================================
+   LIGHT MODE BUTTON COMPATIBILITY
+   ============================================================ */
+
+html:not(.dark) button.text-white {
+  color: var(--text);
+}
+
+html:not(.dark) button.text-white\/90 {
+  color: rgba(23, 24, 32, 0.9);
+}
+
+html:not(.dark) button.text-white\/80 {
+  color: rgba(23, 24, 32, 0.8);
+}
+
+html:not(.dark) button.text-white\/70 {
+  color: rgba(23, 24, 32, 0.7);
+}
+
+html:not(.dark) button.text-white\/60 {
+  color: rgba(23, 24, 32, 0.6);
+}
+
+html:not(.dark) button.text-white\/50 {
+  color: rgba(23, 24, 32, 0.5);
+}
+
+html:not(.dark) button.text-white\/40 {
+  color: rgba(23, 24, 32, 0.42);
+}
+
+html:not(.dark) button.text-white\/35 {
+  color: rgba(23, 24, 32, 0.48);
+}
+
+html:not(.dark) button.bg-white\/5 {
+  background-color: rgba(15, 18, 30, 0.045);
+}
+
+html:not(.dark) button.bg-white\/10 {
+  background-color: rgba(15, 18, 30, 0.07);
+}
+
+html:not(.dark) button.bg-white\/\[0\.025\] {
+  background-color: var(--surface);
+}
+
+html:not(.dark) button.bg-white\/\[0\.035\] {
+  background-color: rgba(15, 18, 30, 0.035);
+}
+
+html:not(.dark) button.bg-white\/\[0\.04\] {
+  background-color: rgba(15, 18, 30, 0.04);
+}
+
+html:not(.dark) button.bg-white\/\[0\.05\] {
+  background-color: rgba(15, 18, 30, 0.045);
+}
+
+html:not(.dark) button.border-white\/\[0\.07\] {
+  border-color: var(--border);
+}
+
+html:not(.dark) button.border-white\/\[0\.08\] {
+  border-color: var(--border-strong);
+}
+
+html:not(.dark) button.border-white\/\[0\.12\] {
+  border-color: var(--border-strong);
+}
+
+/* ============================================================
+   THEME TRANSITIONS
+   ============================================================ */
+
+.theme-transition,
+.theme-transition * {
+  transition:
+    background-color 300ms ease,
+    border-color 300ms ease,
+    color 300ms ease;
+}
+
+/* ============================================================
+   FOCUS STATES
+   ============================================================ */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.65);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
