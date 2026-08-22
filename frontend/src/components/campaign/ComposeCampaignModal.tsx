@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Clock3,
   Mail,
-  Plus,
   Send,
   Users,
   X,
