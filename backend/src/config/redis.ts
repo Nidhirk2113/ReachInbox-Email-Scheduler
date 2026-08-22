@@ -6,6 +6,7 @@ export const redis = new Redis({
   port: env.redis.port,
   username: env.redis.username,
   password: env.redis.password,
+  maxRetriesPerRequest: null,
 });
 
 export async function connectRedis() {
