@@ -8,9 +8,9 @@ async function startServer() {
     await connectDatabase();
     await connectRedis();
 
-    app.listen(env.port, () => {
-      console.log(`? API running at http://localhost:${env.port}`);
-    });
+    app.listen(env.port, "0.0.0.0", () => {
+  console.log(`API running on port ${env.port}`);
+  });
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
