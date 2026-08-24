@@ -34,7 +34,7 @@ interface FormState {
 
 const defaultStartTime = () => {
   const date = new Date(
-    Date.now() + 5 * 60 * 1000
+    Date.now() + 60 * 1000
   );
 
   const offset =
